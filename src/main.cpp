@@ -64,10 +64,12 @@ long wassercounter=0, wassercounterday=0;
 unsigned int lastwasservalue=0;
 unsigned int temptimer=0;
 float tempvalue=127;
+float lasttemp=127;
+int tempcounter=0;
 unsigned long wasserstarted=0;
 int8_t wasseralarm = 0;  
 int8_t heizungTempAlarm = 0; 
-#define wasserAlert 60000  // 300000
+#define wasserAlert  300000
 
 char logString[200];
 
@@ -242,8 +244,8 @@ void loop() {
     //Serial.println(devices);
     sensors.requestTemperatures();
     if (devices>0) {
-      tempvalue = sensors.getTempCByIndex(0);
-      Serial.println(tempvalue);
+      tempvalue = round(sensors.getTempCByIndex(0));
+      //Serial.println(tempvalue);
       SendeStatusTemp();
       if (tempvalue>20) {
             EMail_Send("HomeServer/Heizung/TempAlarm");
@@ -368,7 +370,17 @@ void SendeStatus() {
 void SendeStatusTemp() {
   digitalWrite(blinkled,1);
 
-  MQTT_Send("hm/set/CUX9002006:1/SET_TEMPERATURE",tempvalue);  
+  if (lasttemp == tempvalue)
+  { if (tempcounter++ > 60)   {
+      MQTT_Send("hm/set/CUX9002006:1/SET_TEMPERATURE",tempvalue);
+      tempcounter = 0;
+    }
+  }
+  else {
+    MQTT_Send("hm/set/CUX9002006:1/SET_TEMPERATURE",tempvalue);  
+    tempcounter = 0;
+    }
+  lasttemp = tempvalue;  
   digitalWrite(blinkled,0);
 }
 
