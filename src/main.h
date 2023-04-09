@@ -1,0 +1,12 @@
+void WIFI_Connect();
+void SendeStatus();
+void SendeStatusTemp();
+void UDBDebug(String message);
+void Flash_Read();
+void Flash_Write();
+bool getLocalTime(struct tm * info, uint32_t ms);
+void MQTT_Send(char const * topic, String value);
+void MQTT_Send(char const * topic, float value);
+void MQTT_Send(char const * topic, int16_t value);
+void MQTT_Send(char const * topic, long value);
+void EMail_Send(String textmessage);
