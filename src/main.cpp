@@ -16,7 +16,7 @@
 #define UDPDEBUG 1
 #ifdef UDPDEBUG
 WiFiUDP udp;
-const char * udpAddress = "192.168.0.34";
+const char * udpAddress = "192.168.0.63";
 const int udpPort = 19814;
 #endif
 
@@ -26,7 +26,7 @@ WiFiClient wifiClient;
 #define DefaultTimeZone "CET-1CEST,M3.5.0/02,M10.5.0/03"  
 String MY_TZ = DefaultTimeZone ;
 
-const char* mqtt_server = "192.168.0.46";
+const char* mqtt_server = "192.168.0.63";
 // MQTT_User and MQTT_Pass defined via platform.ini, external file, not uploaded to github
 PubSubClient mqttclient(wifiClient);
 
@@ -43,7 +43,7 @@ SMTPSession smtp;
 void smtpCallback(SMTP_Status status);
 
 
-const char* host = "192.168.0.59";  // war 34
+const char* host = "192.168.0.46";  // war 34
 const int httpPort = 80;  // war 8000
 
 const char * wifihostname = "Wemos_Wasser";
@@ -69,7 +69,7 @@ int tempcounter=0;
 unsigned long wasserstarted=0;
 int8_t wasseralarm = 0;  
 int8_t heizungTempAlarm = 0; 
-#define wasserAlert  300000
+#define wasserAlert 400000  // 500000
 
 char logString[200];
 
@@ -142,7 +142,7 @@ void setup() {
 
   Flash_Read();
 
-  if(!getLocalTime(&timeinfo, 1000)) {
+  if(!mygetLocalTime(&timeinfo, 1000)) {
     UDBDebug("Failed to obtain time");
   }
   else
@@ -152,6 +152,8 @@ void setup() {
 
   server.begin();
   sensors.begin();
+
+  EMail_Send("HomeServer/Heizung/WasserStart");
 }
 
 
@@ -168,14 +170,17 @@ void loop() {
         UDBDebug("MQTT reconnect successful"); 
     }  
     else
+    {
        UDBDebug("MQTT reconnect error");  
+       delay(5000);
+    }   
   };
 
     
   ArduinoOTA.handle();
 
   // einmal am Tag daycounter zurücksetzen
-  if(!getLocalTime(&timeinfo, 1000)) {
+  if(!mygetLocalTime(&timeinfo, 1000)) {
     UDBDebug("Failed to obtain time");
   }
   else
@@ -247,7 +252,7 @@ void loop() {
       tempvalue = round(sensors.getTempCByIndex(0));
       //Serial.println(tempvalue);
       SendeStatusTemp();
-      if (tempvalue>20) {
+      if ((tempvalue>25) && (heizungTempAlarm == 0)){
             EMail_Send("HomeServer/Heizung/TempAlarm");
             heizungTempAlarm = 1; 
         }
@@ -255,11 +260,14 @@ void loop() {
     else
       Serial.println("no temp device found");
   }
+
+
       if ((wasserstarted != 0) && ((wasserstarted + wasserAlert)< zeit)) {
           // alarm !
           if (wasseralarm == 0) {
               EMail_Send("HomeServer/Heizung/WasserAlarm");  
               UDBDebug("Wasseralarm");
+              MQTT_Send("HomeServer/Heizung/WasserAlarm",(long) wasserstarted); 
               wasseralarm = 1;    
           }     
       }
@@ -273,6 +281,7 @@ void loop() {
     delay(1);
     return;
   }
+  // if not, return loop here
  // Wait until the client sends some data
   Serial.println("new client");
   int timeout=0;
@@ -312,7 +321,7 @@ void loop() {
 }
 
 
-bool getLocalTime(struct tm * info, uint32_t ms)
+bool mygetLocalTime(struct tm * info, uint32_t ms)
 {
     uint32_t start = millis();
     time_t now;
@@ -394,10 +403,10 @@ void UDBDebug(String message) {
 
 
 void MQTT_Send(char const * topic, String value) {
-    UDBDebug("MQTT " +String(topic)+" "+value); 
+    //UDBDebug("MQTT " +String(topic)+" "+value); 
     Serial.println("MQTT " +String(topic)+" "+value) ;
     if (!mqttclient.publish(topic, value.c_str(), true)) {
-       UDBDebug("MQTT error");  
+       UDBDebug("Wasser MQTT error");  
     };
 }
 
@@ -467,7 +476,7 @@ void EMail_Send(String textmessage) {
   /* Set the message headers */
   message.sender.name = "ESP";
   message.sender.email = email_user;
-  message.subject = "HomeServer Alert";
+  message.subject = "HomeServer Wasser Alert";
   message.addRecipient(email_user, email_user);
 
   message.text.content = textmessage.c_str();
@@ -480,7 +489,7 @@ void EMail_Send(String textmessage) {
 
   /* Start sending Email and close the session */
   if (!MailClient.sendMail(&smtp, &message))
-    UDBDebug("Error sending Email, " + smtp.errorReason());
+    UDBDebug("Wasser Error sending Email, " + smtp.errorReason());
 }
 
 /* Callback function to get the Email sending status */
@@ -492,8 +501,8 @@ void smtpCallback(SMTP_Status status)
   /* Print the sending result */
   if (status.success())
   {
-    UDBDebug("Message sent success: "+String(status.completedCount()));
-    UDBDebug("Message sent failed: "+String(status.failedCount()));
+    UDBDebug("Wasser Message sent success: "+String(status.completedCount()));
+    UDBDebug("Wasser Message sent failed: "+String(status.failedCount()));
     // You need to clear sending result as the memory usage will grow up.
     smtp.sendingResult.clear();
   }
